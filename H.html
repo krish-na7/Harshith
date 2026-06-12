@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Training Scheduler</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    h1 { color: #333; }
+    h2 { color: #444; border-bottom: 2px solid #3498db; padding-bottom: 6px; }
+    h3 { color: #555; }
+
+    .container {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .nav-buttons {
+      margin: 20px 0;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+    }
+    .nav-btn {
+      padding: 8px 15px;
+      margin-right: 10px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .nav-btn:hover { background-color: #2980b9; }
+    .nav-btn.active { background-color: #1a6a9a; }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover { opacity: 0.9; }
+    button.export { background-color: #2ecc71; }
+    button.delete { background-color: #e74c3c; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th { background-color: #f2f2f2; }
+
+    .delete-btn {
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .edit-btn {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-right: 4px;
+    }
+
+    .conflict-warning {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 10px;
+      color: #856404;
+      display: none;
+    }
+    .conflict-warning.show { display: block; }
+
+    /* Login */
+    .login-section {
+      max-width: 400px;
+      margin: 60px auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .login-btn {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 10px;
+      font-size: 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: none;
+      color: white;
+    }
+    .login-btn.guest { background-color: #3498db; }
+    .login-btn.admin { background-color: #e67e22; }
+
+    #adminPasswordContainer {
+      display: none;
+      margin-top: 15px;
+    }
+    #adminPasswordContainer input {
+      margin-bottom: 8px;
+    }
+
+    .role-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    .role-badge.guest { background: #d6eaf8; color: #1a5276; }
+    .role-badge.admin { background: #fdebd0; color: #784212; }
+
+    .readonly-notice {
+      background: #d6eaf8;
+      border: 1px solid #85c1e9;
+      padding: 8px 14px;
+      border-radius: 4px;
+      margin-bottom: 14px;
+      color: #1a5276;
+      font-size: 13px;
+    }
+
+    .action-buttons { margin: 16px 0; }
+    .action-buttons button { margin-right: 8px; }
+
+    .member-list { margin-top: 10px; }
+    .member-item {
+      display: inline-block;
+      background: #eaf2ff;
+      border: 1px solid #aed6f1;
+      border-radius: 4px;
+      padding: 4px 10px;
+      margin: 3px;
+      font-size: 13px;
+    }
+    .member-item .rm {
+      color: #e74c3c;
+      cursor: pointer;
+      margin-left: 6px;
+      font-weight: bold;
+    }
+
+    #adminPanelSection {
+      background: #fff8f0;
+      border: 1px solid #fad7a0;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .filter-row { margin-bottom: 14px; }
+    .filter-row label { display: inline; font-weight: normal; margin-right: 8px; }
+    .filter-row select { width: auto; display: inline; padding: 5px; }
+  </style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<div id="loginPage">
+  <div class="login-section">
+    <h2 style="border:none;margin-top:0">Training Scheduler</h2>
+    <p style="color:#666;margin-bottom:20px">Please select your access level:</p>
+    <button class="login-btn guest" onclick="loginGuest()">👁 Guest Access (View Only)</button>
+    <button class="login-btn admin" onclick="showAdminInput()">🔐 Admin Access</button>
+    <div id="adminPasswordContainer">
+      <input type="password" id="adminPassword" placeholder="Enter admin password">
+      <button onclick="verifyAdmin()">Verify</button>
+      <p id="wrongPin" style="color:#e74c3c;font-size:13px;display:none">Incorrect password.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── APP ── -->
+<div id="appPage" style="display:none">
+
+  <div class="container">
+    <h1>📋 Training Scheduler <span class="role-badge" id="roleBadge">Guest</span></h1>
+
+    <div id="readonlyNotice" class="readonly-notice">
+      👁 You are in read-only mode. Log in as Admin to make changes.
+    </div>
+
+    <div class="nav-buttons" id="navButtons">
+      <button class="nav-btn active" onclick="showSection('trainings')">Trainings</button>
+      <button class="nav-btn" onclick="showSection('members')" id="navMembers" style="display:none">Members</button>
+      <button class="nav-btn" id="navAdmin" onclick="showSection('adminPanel')" style="display:none">⚙ Admin</button>
+      <button class="nav-btn" onclick="logout()" style="background:#888;float:right">Sign Out</button>
+    </div>
+
+    <!-- ══ TRAININGS SECTION ══ -->
+    <div id="trainings" class="section active">
+      <h2>Training Management</h2>
+
+      <!-- Add/Edit Form (admin only) -->
+      <div id="trainingFormContainer">
+        <form id="trainingForm">
+          <label for="member">Member:</label>
+          <select id="member" required>
+            <option value="">Select Member</option>
+          </select>
+
+          <label for="trainingName">Training Name:</label>
+          <input type="text" id="trainingName" required placeholder="e.g. Product Onboarding">
+
+          <label for="fromDate">From Date:</label>
+          <input type="date" id="fromDate" required onchange="checkConflict()">
+
+          <label for="toDate">To Date:</label>
+          <input type="date" id="toDate" required onchange="checkConflict()">
+
+          <label for="startTime">Start Time:</label>
+          <input type="time" id="startTime" required onchange="checkConflict()">
+
+          <label for="endTime">End Time:</label>
+          <input type="time" id="endTime" required onchange="checkConflict()">
+
+          <div class="conflict-warning" id="conflictWarning">
+            ⚠ <span id="conflictMsg">Time conflict detected in this domain.</span>
+          </div>
+
+          <button type="submit" id="submitBtn">Submit</button>
+          <button type="button" id="cancelEditBtn" onclick="cancelEdit()" style="background:#888;display:none">Cancel</button>
+        </form>
+      </div>
+
+      <div class="action-buttons">
+        <button onclick="viewData()">📋 View All Trainings</button>
+        <button class="export" onclick="exportToExcel()">⬇ Export to Excel</button>
+        <button class="delete" id="deleteAllBtn" onclick="deleteAllData()" style="display:none">🗑 Delete All Data</button>
+      </div>
+
+      <!-- Filter -->
+      <div class="filter-row" id="filterRow" style="display:none">
+        <label>Filter by Domain:</label>
+        <select id="filterDomain" onchange="viewData()">
+          <option value="">All Domains</option>
+          <option value="Sales">Sales</option>
+          <option value="Marketing">Marketing</option>
+          <option value="Engineering">Engineering</option>
+        </select>
+      </div>
+
+      <div id="dataTable" style="display:none">
+        <table id="trainingsTable">
+          <thead>
+            <tr>
+              <th>Domain</th><th>Member</th><th>Training Name</th>
+              <th>From</th><th>To</th><th>Time</th><th id="actionsHead">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ MEMBERS SECTION ══ -->
+    <div id="members" class="section">
+      <h2>Member Management</h2>
+
+      <div class="member-form">
+        <h3>Add New Member</h3>
+        <form id="addMemberForm">
+          <label for="newDomain">Domain:</label>
+          <select id="newDomain" required>
+            <option value="">Select Domain</option>
+            <option value="Sales">Sales</option>
+            <option value="Marketing">Marketing</option>
+            <option value="Engineering">Engineering</option>
+          </select>
+
+          <label for="newMemberName">Member Name:</label>
+          <input type="text" id="newMemberName" required placeholder="Enter full name">
+
+          <button type="submit">Add Member</button>
+        </form>
+      </div>
+
+      <div class="member-list" id="memberListDisplay">
+        <h3>Current Members</h3>
+        <div id="membersByDomain"></div>
+      </div>
+    </div>
+
+    <!-- ══ ADMIN PANEL ══ -->
+    <div id="adminPanel" class="section">
+      <h2>Admin Panel</h2>
+      <div id="adminPanelSection">
+        <h3>Change Admin Password</h3>
+        <label>New Password:</label>
+        <input type="password" id="newAdminPwd" placeholder="Min 4 characters" style="max-width:300px">
+        <button onclick="updateAdminPwd()">Update Password</button>
+
+        <h3 style="margin-top:20px">Data Management</h3>
+        <div class="action-buttons">
+          <button class="export" onclick="exportToExcel()">⬇ Export Excel</button>
+          <button onclick="exportJson()">💾 Backup JSON</button>
+          <button onclick="document.getElementById('importFile').click()">⬆ Import JSON</button>
+          <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+          <button class="delete" onclick="deleteAllData()">🗑 Clear All Data</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── CONFIG & STATE ──────────────────────────────────
+const STORE = 'ts_app_v1';
+let adminPassword = 'Admin123';
+let currentRole   = null;  // 'guest' | 'admin'
+let editingIndex  = null;
+
+let domainMembers = {
+  Sales:       ['John Doe', 'Jane Smith'],
+  Marketing:   ['Alice Brown', 'Bob Wilson'],
+  Engineering: ['David Lee', 'Eve Clark']
+};
+let trainings = [];
+
+// ── PERSIST ────────────────────────────────────────
+function saveData() {
+  localStorage.setItem(STORE, JSON.stringify({
+    adminPassword, domainMembers, trainings
+  }));
+}
+
+function loadData() {
+  try {
+    const d = JSON.parse(localStorage.getItem(STORE));
+    if (!d) return;
+    if (d.adminPassword)  adminPassword  = d.adminPassword;
+    if (d.domainMembers)  domainMembers  = d.domainMembers;
+    if (d.trainings)      trainings      = d.trainings;
+  } catch(e) {}
+}
+
+// ── LOGIN ───────────────────────────────────────────
+function showAdminInput() {
+  document.getElementById('adminPasswordContainer').style.display = 'block';
+  document.getElementById('adminPassword').focus();
+}
+
+function loginGuest() {
+  currentRole = 'guest';
+  startApp();
+}
+
+function verifyAdmin() {
+  const pwd = document.getElementById('adminPassword').value;
+  if (pwd === adminPassword) {
+    currentRole = 'admin';
+    startApp();
+  } else {
+    document.getElementById('wrongPin').style.display = '';
+    setTimeout(() => document.getElementById('wrongPin').style.display = 'none', 2500);
+    document.getElementById('adminPassword').value = '';
+  }
+}
+
+// allow Enter key
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('adminPassword').addEventListener('keydown', e => {
+    if (e.key === 'Enter') verifyAdmin();
+  });
+});
+
+function logout() {
+  currentRole = null;
+  document.getElementById('loginPage').style.display = '';
+  document.getElementById('appPage').style.display   = 'none';
+  document.getElementById('adminPasswordContainer').style.display = 'none';
+  document.getElementById('adminPassword').value = '';
+}
+
+function startApp() {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('appPage').style.display   = '';
+
+  const isAdmin = currentRole === 'admin';
+
+  document.getElementById('roleBadge').textContent  = isAdmin ? 'Admin' : 'Guest';
+  document.getElementById('roleBadge').className    = 'role-badge ' + currentRole;
+  document.getElementById('readonlyNotice').style.display = isAdmin ? 'none' : '';
+
+  // nav
+  document.getElementById('navMembers').style.display = isAdmin ? '' : 'none';
+  document.getElementById('navAdmin').style.display   = isAdmin ? '' : 'none';
+
+  // form + delete
+  document.getElementById('trainingFormContainer').style.display = isAdmin ? '' : 'none';
+  document.getElementById('deleteAllBtn').style.display           = isAdmin ? '' : 'none';
+  document.getElementById('actionsHead').style.display            = isAdmin ? '' : 'none';
+
+  setupTrainingForm();
+  setupMemberForm();
+  updateMemberDropdown();
+  showSection('trainings');
+  viewData();
+}
+
+// ── NAVIGATION ──────────────────────────────────────
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  // highlight matching nav btn
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    if (b.getAttribute('onclick') && b.getAttribute('onclick').includes("'" + id + "'"))
+      b.classList.add('active');
+  });
+  if (id === 'members') renderMemberList();
+}
+
+// ── TRAINING FORM ────────────────────────────────────
+function setupTrainingForm() {
+  document.getElementById('trainingForm').onsubmit = function(e) {
+    e.preventDefault();
+    const memberVal = document.getElementById('member').value;
+    const [domain, member] = memberVal.split('|');
+
+    const newT = {
+      Domain:       domain,
+      Member:       member,
+      TrainingName: document.getElementById('trainingName').value.trim(),
+      FromDate:     document.getElementById('fromDate').value,
+      ToDate:       document.getElementById('toDate').value,
+      StartTime:    document.getElementById('startTime').value,
+      EndTime:      document.getElementById('endTime').value,
+    };
+
+    if (!newT.Domain || !newT.Member) { alert('Please select a member.'); return; }
+    if (newT.FromDate > newT.ToDate)  { alert('"From" date must be before "To" date.'); return; }
+    if (newT.StartTime >= newT.EndTime) { alert('"Start Time" must be before "End Time".'); return; }
+
+    if (checkConflictData(newT, editingIndex)) {
+      alert('Conflict detected! Another member in this domain has a training at this time.');
+      return;
+    }
+
+    if (editingIndex !== null) {
+      trainings[editingIndex] = newT;
+      editingIndex = null;
+      document.getElementById('submitBtn').textContent = 'Submit';
+      document.getElementById('cancelEditBtn').style.display = 'none';
+    } else {
+      trainings.push(newT);
+    }
+
+    saveData();
+    this.reset();
+    updateMemberDropdown();
+    document.getElementById('conflictWarning').classList.remove('show');
+    viewData();
+    alert(editingIndex !== null ? 'Training updated!' : 'Training registered successfully!');
+  };
+}
+
+function editTraining(index) {
+  const t = trainings[index];
+  editingIndex = index;
+
+  updateMemberDropdown();
+  document.getElementById('member').value       = t.Domain + '|' + t.Member;
+  document.getElementById('trainingName').value  = t.TrainingName;
+  document.getElementById('fromDate').value      = t.FromDate;
+  document.getElementById('toDate').value        = t.ToDate;
+  document.getElementById('startTime').value     = t.StartTime;
+  document.getElementById('endTime').value       = t.EndTime;
+
+  document.getElementById('submitBtn').textContent = 'Update';
+  document.getElementById('cancelEditBtn').style.display = '';
+
+  showSection('trainings');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelEdit() {
+  editingIndex = null;
+  document.getElementById('trainingForm').reset();
+  document.getElementById('submitBtn').textContent = 'Submit';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  document.getElementById('conflictWarning').classList.remove('show');
+  updateMemberDropdown();
+}
+
+function deleteTraining(index) {
+  if (!confirm('Delete this training session?')) return;
+  trainings.splice(index, 1);
+  saveData(); viewData();
+  alert('Training deleted.');
+}
+
+function deleteAllData() {
+  if (!confirm('Are you sure you want to delete ALL training data?')) return;
+  trainings = [];
+  saveData(); viewData();
+  alert('All data has been deleted.');
+}
+
+// ── CONFLICT ─────────────────────────────────────────
+function timeToMin(t) {
+  const [h, m] = t.split(':').map(Number); return h * 60 + m;
+}
+
+function checkConflictData(newT, excludeIdx) {
+  return trainings.some((t, i) => {
+    if (i === excludeIdx) return false;
+    if (t.Domain !== newT.Domain) return false;
+    // date overlap
+    if (newT.ToDate < t.FromDate || newT.FromDate > t.ToDate) return false;
+    // time overlap
+    return timeToMin(newT.StartTime) < timeToMin(t.EndTime) &&
+           timeToMin(newT.EndTime)   > timeToMin(t.StartTime);
+  });
+}
+
+function checkConflict() {
+  const memberVal = document.getElementById('member').value;
+  if (!memberVal) return;
+  const [domain]   = memberVal.split('|');
+  const fromDate   = document.getElementById('fromDate').value;
+  const toDate     = document.getElementById('toDate').value;
+  const startTime  = document.getElementById('startTime').value;
+  const endTime    = document.getElementById('endTime').value;
+
+  const warn = document.getElementById('conflictWarning');
+
+  if (domain && fromDate && toDate && startTime && endTime && startTime < endTime) {
+    const t = { Domain: domain, FromDate: fromDate, ToDate: toDate, StartTime: startTime, EndTime: endTime };
+    if (checkConflictData(t, editingIndex)) {
+      const found = trainings.find((ex, i) => {
+        if (i === editingIndex) return false;
+        if (ex.Domain !== domain) return false;
+        if (toDate < ex.FromDate || fromDate > ex.ToDate) return false;
+        return timeToMin(startTime) < timeToMin(ex.EndTime) && timeToMin(endTime) > timeToMin(ex.StartTime);
+      });
+      document.getElementById('conflictMsg').textContent = found
+        ? `Conflicts with "${found.TrainingName}" (${found.Member}, ${found.StartTime}–${found.EndTime})`
+        : 'Conflict detected in this domain.';
+      warn.classList.add('show');
+      return;
+    }
+  }
+  warn.classList.remove('show');
+}
+
+// ── VIEW DATA ─────────────────────────────────────────
+function viewData() {
+  const filter   = document.getElementById('filterDomain').value;
+  const tableDiv = document.getElementById('dataTable');
+  const body     = document.getElementById('tableBody');
+  const isAdmin  = currentRole === 'admin';
+
+  document.getElementById('filterRow').style.display = '';
+  tableDiv.style.display = 'block';
+
+  const sorted = [...trainings]
+    .map((t, i) => ({ ...t, _i: i }))
+    .filter(t => !filter || t.Domain === filter)
+    .sort((a, b) => a.FromDate < b.FromDate ? -1 : a.FromDate > b.FromDate ? 1 :
+                    a.StartTime.localeCompare(b.StartTime));
+
+  if (sorte
